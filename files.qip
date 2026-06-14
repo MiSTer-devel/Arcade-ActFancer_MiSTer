@@ -1,0 +1,63 @@
+# ============================================================================
+# Act-Fancer (Data East 1989) - source file list
+# ============================================================================
+
+# === TOP-LEVEL EMU ===
+set_global_assignment -name SYSTEMVERILOG_FILE ActFancer.sv
+
+# === PLL ===
+set_global_assignment -name VERILOG_FILE rtl/pll.v
+set_global_assignment -name QIP_FILE     rtl/pll.qip
+
+# === SDRAM controller (Sorgelig 4-port from ChinaGate skeleton) ===
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
+
+# === ActFancer game RTL ===
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_top.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_main.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_snd.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_video.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_bac06_wrap.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_obj_wrap.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_rom_bram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_sdram_bridge.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/common/gfx_decode_debug.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/common/rom_cache_2way.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/common/actfancer_ddram.sv
+
+# === jtcop video/audio modules (from jotego/jtcores cop/) ===
+set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_bac06.v
+set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj.v
+set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj_buffer.v
+set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj_draw.v
+set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_colmix.v
+
+# === HUC6280 (VHDL, main CPU - from BoogieWings/TG16) ===
+set_global_assignment -name VHDL_FILE rtl/HUC6280/HUC6280_PKG.vhd
+set_global_assignment -name VHDL_FILE rtl/HUC6280/AddSubBCD.vhd
+set_global_assignment -name VHDL_FILE rtl/HUC6280/HUC6280_ALU.vhd
+set_global_assignment -name VHDL_FILE rtl/HUC6280/HUC6280_AG.vhd
+set_global_assignment -name VHDL_FILE rtl/HUC6280/HUC6280_MC.vhd
+set_global_assignment -name VHDL_FILE rtl/HUC6280/HUC6280_CPU.vhd
+set_global_assignment -name VHDL_FILE rtl/HUC6280/HUC6280.vhd
+
+# === Audio cores ===
+set_global_assignment -name QIP_FILE rtl/sound/jt03/jt03.qip
+set_global_assignment -name QIP_FILE rtl/sound/jtopl/jtopl.qip
+set_global_assignment -name QIP_FILE rtl/sound/jt6295/jt6295.qip
+
+# === Sound CPU (MC6502 from jtframe/jtcores) ===
+set_global_assignment -name QIP_FILE jtframe/hdl/cpu/mc6502/mc6502.qip
+
+# === JTFRAME utilities (video timing + linebuf used by jtcop_bac06) ===
+set_global_assignment -name VERILOG_FILE jtframe/hdl/video/jtframe_vtimer.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/video/jtframe_linebuf.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/video/jtframe_tilemap.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/ram/jtframe_dual_ram.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/ram/jtframe_dual_ram16.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/ram/jtframe_dual_nvram.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/ram/jtframe_dual_nvram16.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/ram/jtframe_rpwp_ram.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/ram/jtframe_obj_buffer.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/jtframe_ff.v
+set_global_assignment -name VERILOG_FILE jtframe/hdl/clocking/jtframe_frac_cen.v
