@@ -64,10 +64,10 @@
          offs 0x10000-0x17FFF = ROM16 1st half = RGN_FRAC(2,4) → pen bit 0 → B1 (map=0010)
          offs 0x18000-0x1FFFF = ROM16 2nd half = RGN_FRAC(3,4) → pen bit 2 → B3 (map=1000) -->
     <interleave output="32">
-      <part name="15" offset="0x00000" length="0x8000" map="0001"/>  <!-- region 0/4 → B0 = pen bit 1 -->
-      <part name="16" offset="0x00000" length="0x8000" map="0010"/>  <!-- region 2/4 → B1 = pen bit 0 -->
-      <part name="15" offset="0x08000" length="0x8000" map="0100"/>  <!-- region 1/4 → B2 = pen bit 3 -->
-      <part name="16" offset="0x08000" length="0x8000" map="1000"/>  <!-- region 3/4 → B3 = pen bit 2 -->
+      <part name="15" crc="a1baf21e" offset="0x00000" length="0x8000" map="0001"/>  <!-- region 0/4 → B0 = pen bit 1 -->
+      <part name="16" crc="22e64730" offset="0x00000" length="0x8000" map="0010"/>  <!-- region 2/4 → B1 = pen bit 0 -->
+      <part name="15" crc="a1baf21e" offset="0x08000" length="0x8000" map="0100"/>  <!-- region 1/4 → B2 = pen bit 3 -->
+      <part name="16" crc="22e64730" offset="0x08000" length="0x8000" map="1000"/>  <!-- region 3/4 → B3 = pen bit 2 -->
     </interleave>
 
     <!-- ===== Sprites 16x16 4bpp 384KB @ 0x060000 =====
@@ -88,17 +88,17 @@
          (stesso layout/pattern di tiles, confermato vs jtcop_bac06.v draw_pxl) -->
     <interleave output="32">
       <!-- B0 = region 2/4 (00+01) -->
-      <part name="00" map="0001"/>
-      <part name="01" map="0001"/>
+      <part name="00" crc="d50a9550" map="0001"/>
+      <part name="01" crc="34935e93" map="0001"/>
       <!-- B1 = region 3/4 (04+05) -->
-      <part name="04" map="0010"/>
-      <part name="05" map="0010"/>
+      <part name="04" crc="bcf41795" map="0010"/>
+      <part name="05" crc="d38b94aa" map="0010"/>
       <!-- B2 = region 0 (02+03) -->
-      <part name="02" map="0100"/>
-      <part name="03" map="0100"/>
+      <part name="02" crc="b1db0efc" map="0100"/>
+      <part name="03" crc="f313e04f" map="0100"/>
       <!-- B3 = region 1/4 (06+07) -->
-      <part name="06" map="1000"/>
-      <part name="07" map="1000"/>
+      <part name="06" crc="8cb6dd87" map="1000"/>
+      <part name="07" crc="dd345def" map="1000"/>
     </interleave>
 
     <!-- ===== Tiles 16x16 4bpp 256KB @ 0x0C0000 =====
@@ -110,10 +110,10 @@
            region 3/4 = 11 (64KB)
     -->
     <interleave output="32">
-      <part name="13" map="0001"/>  <!-- B0 = region 2/4 -->
-      <part name="11" map="0010"/>  <!-- B1 = region 3/4 -->
-      <part name="14" map="0100"/>  <!-- B2 = region 0 -->
-      <part name="12" map="1000"/>  <!-- B3 = region 1/4 -->
+      <part name="13" crc="c30c37dc" map="0001"/>  <!-- B0 = region 2/4 -->
+      <part name="11" crc="1f006d9f" map="0010"/>  <!-- B1 = region 3/4 -->
+      <part name="14" crc="d6457420" map="0100"/>  <!-- B2 = region 0 -->
+      <part name="12" crc="08787b7a" map="1000"/>  <!-- B3 = region 1/4 -->
     </interleave>
 
     <!-- OKI M6295 ADPCM 256KB @ 0x100000 -->
