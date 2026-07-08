@@ -9,9 +9,20 @@ Act-Fancer is a **side-scrolling action platformer** running on
 
 ## Status
 
-**Current version: 1.0** (June 2026).
+**Current version: 1.1** (July 2026).
 
-The core runs the full game with audio and inputs.
+The core runs the full game with audio and inputs, tested on real MiSTer
+hardware.
+
+**New in 1.1**
+- **CRT Stretch** (analog horizontal H-Size) reworked to a **core-side**
+  implementation — zero `sys/sys_top.v` changes, MiSTer-devel compliant. New OSD:
+  *CRT Stretch* Off/On (default Off) + *CRT Stretch Amount* 0..5. Integer,
+  line-buffered stretch — no shimmering or scaling artifacts on the analog output.
+- The on-screen OSD stays put while H-Shift moves the stretched image (the OSD is
+  anchored to the native active window, the image is shifted on the analog HSync).
+- **Analog VGA H-Shift** range biased toward the left, so the rightward-growing
+  stretch can be re-centered.
 
 **Features**
 - HuC6280 main CPU @ 7.159 MHz (HUC6280 VHDL core)
@@ -21,7 +32,8 @@ The core runs the full game with audio and inputs.
 - 2 BAC06 tile layers (PF0 16×16 background + PF1 8×8 characters) via Jotego's `jtcop_bac06`
 - MXC06 sprite chip (16×16, palette-banking, priority)
 - Per-channel audio mixer in OSD (YM2203 / YM3812 / OKI ADPCM gain, 7-bit Q4.4)
-- **Analog VGA H-Shift / V-Shift / H-Size** OSD options for fine alignment on 15 kHz CRTs
+- **Analog VGA H-Shift / V-Shift** OSD options for fine alignment on 15 kHz CRTs
+- **CRT Stretch** OSD option (analog horizontal pixel stretch for CRTs), core-side — see note below
 - Pause overlay with logo + supporters scroll
 - Hardware-accurate DIP switches: Coinage, Demo Sounds, Flip Screen,
   Cabinet, Lives, Difficulty, Bonus Life
@@ -63,23 +75,31 @@ The core runs the full game with audio and inputs.
 | Palette          | xBGR_555, 1024 entries                              |
 | Tile / sprite IC | DECO BAC06 (×2) + MXC06                             |
 
-## Analog VGA H-Size (analog_hsize)
+## A note on the CRT Stretch (analog H-Size) implementation
 
-The core includes a custom **Analog VGA horizontal pixel-stretch** module
-(`sys/analog_hsize.sv`) authored by the core developer and originally
-released as a standalone reusable module:
+The core includes a custom **analog horizontal pixel-stretch** module,
+originally released as a standalone reusable module:
 
-- Repository: [MiSTer-AnalogHStretch](https://github.com/rmonic79/MiSTer-AnalogHStretch)
+- Repository: [MiSTer-AnalogHSize](https://github.com/rmonic79/MiSTer-AnalogHSize)
 
-What it does on the analog VGA branch only (HDMI is NOT touched):
-- Each source pixel is emitted to the DAC for the same **integer-uniform**
-  number of pixel-clock periods. Identical stretch factor on every pixel of
-  every line ⇒ no shimmering, no blending/blur, no duplicated pixels.
-- The slight reduction in analog horizontal sync rate is absorbed by the
-  porches, well within the tolerance of 15 kHz CRTs / PVMs.
+A cleaner approach exists as a module inside `sys_top`, where only the analog
+DAC is stretched and the HDMI output stays untouched. Per the MiSTer-devel
+guidelines the framework (`sys/`) must not be modified, so this core does not
+use that approach for the official release.
 
-Controlled by the `Analog VGA H-Size` OSD entry (0 = bypass, +1..+7 =
-progressively wider analog viewport).
+Instead, CRT Stretch here is implemented **core-side**
+(`rtl/actfancer/analog_hsize.sv`, zero `sys_top` changes), which keeps the core
+compliant with the MiSTer-devel rules. The trade-off is that the stretch is
+applied to the whole video path: **while CRT Stretch is active you cannot have a
+clean HDMI output at the same time as the horizontal resize** — HDMI follows the
+stretch too. The stretch itself is integer and line-buffered, so it is **free of
+shimmering or scaling artifacts** on the analog output. Leave CRT Stretch Off
+(default) for an untouched HDMI image.
+
+Controlled by two OSD entries: **CRT Stretch** (Off/On, default Off) and, once
+On, **CRT Stretch Amount** (0..5, progressively wider analog viewport). Because
+the stretch grows the image rightward, the **Analog VGA H-Shift** range is
+biased toward the left so you can re-center the stretched image.
 
 ## Hardware requirements
 
@@ -95,16 +115,17 @@ Requires Quartus Prime 17.0 (free Lite Edition).
 Open ActFancer.qpf in Quartus → Processing → Start Compilation
 ```
 
-Output bitstream is generated in `output_files/ActFancer.rbf` (~3.7 MB).
+Output bitstream is generated in `output_files/ActFancer.rbf` (~3.7 MB);
+rename it to `ActFancer_YYYYMMDD.rbf` for the release.
 
 ## Running on MiSTer
 
-The [releases/](releases/) folder contains the parent MRA, regional
-clones and a prebuilt RBF:
+The [releases/](releases/) folder contains the parent MRA and a prebuilt RBF;
+the regional clone MRAs are in [releases/alternatives/](releases/alternatives/):
 
 - `Act-Fancer (World rev 3).mra` — parent MRA
 - `ActFancer_YYYYMMDD.rbf` — prebuilt bitstream
-- `Act-Fancer (World rev 1).mra` / `(World rev 2).mra` / `(Japan rev 1).mra` — regional clones
+- `alternatives/Act-Fancer (World rev 1).mra` / `(World rev 2).mra` / `(Japan rev 1).mra` — regional clones
 
 Steps:
 
@@ -126,10 +147,11 @@ Arcade-ActFancer_MiSTer/
 │   ├── sound/        Sound chip cores (jt03, jtopl, jt6295, t65)
 │   ├── common/       Shared utilities (BRAM ROMs, DDRAM bridge)
 │   └── sdram.sv      SDRAM controller (Sorgelig)
-├── sys/              MiSTer framework (Sorgelig / MiSTer-devel)
+│   (analog_hsize.sv — core-side CRT Stretch — lives under rtl/actfancer/)
+├── sys/              MiSTer framework (Sorgelig / MiSTer-devel), UNMODIFIED
 ├── jtframe/          JTFRAME framework modules
 ├── logo/             Pause overlay assets (font, logo, supporter list)
-├── releases/         Parent MRA + regional clones + prebuilt RBF
+├── releases/         Parent MRA + regional clones (alternatives/) + prebuilt RBF
 ├── ActFancer.qpf     Quartus project
 ├── ActFancer.qsf     Quartus assignments
 ├── ActFancer.sv      Top-level wrapper
@@ -148,6 +170,8 @@ Arcade-ActFancer_MiSTer/
 - **Mike Johnson / Wolfgang Scherr** and others for the HUC6280 VHDL core.
 - **Sorgelig** and the **MiSTer-devel team** for the framework, SDRAM
   controller and Template.
+- **Andrea Bogazzi** ([@asturur](https://github.com/asturur)) for help with the
+  core-side Analog H-Size implementation.
 
 ## Support this project
 

@@ -1386,54 +1386,6 @@ scanlines #(0) VGA_scanlines
 	.ce_out(vga_ce_sl)
 );
 
-// ── Analog VGA H-Size (analog_hsize) ─────────────────────────────────────────
-// PRIMA di vga_osd: il modulo allarga la viewport sul ramo VGA analogico,
-// poi l'OSD viene applicato a coordinate fisse sul flusso post-hsize ->
-// l'OSD resta nella stessa posizione visiva sul CRT (non si muove).
-// Solo ramo analogico. HDMI deriva da vga_data_sl a monte -> INVARIATO.
-// PIXEL RETTANGOLARI UNIFORMI: vga_ce_sl2 e` un ce con divisore intero
-// esatto (16+hsize_emu) di clk_vid. Counter resettato ad ogni rising HSync
-// per fase deterministica linea-per-linea (sincrono al frame), MA mantiene
-// modulo esatto durante la linea -> ogni pixel DAC dura ESATTAMENTE
-// (16+hsize_emu) colpi clk_vid, identico a tutti gli altri pixel.
-// Niente shimmering (no frazionario), niente tremolio (fase sync HSync).
-reg vga_hs_sl_d;
-always @(posedge clk_vid) vga_hs_sl_d <= vga_hs_sl;
-wire vga_hs_rise = vga_hs_sl & ~vga_hs_sl_d;
-
-reg [4:0] vga_ce_div;
-wire [4:0] vga_ce_max = 5'd15 + {2'd0, hsize_emu};
-always @(posedge clk_vid) begin
-    if      (vga_hs_rise)                    vga_ce_div <= 5'd0;
-    else if (vga_ce_div == vga_ce_max)       vga_ce_div <= 5'd0;
-    else                                      vga_ce_div <= vga_ce_div + 5'd1;
-end
-wire vga_ce_sl2 = (hsize_emu == 3'd0) ? vga_ce_sl : (vga_ce_div == 5'd0);
-
-wire [23:0] vga_data_hs;
-wire        vga_hs_hs, vga_vs_hs, vga_de_hs, vga_hb_hs, vga_vb_hs;
-analog_hsize u_analog_hsize (
-	.clk      (clk_vid),
-	.pxl_cen  (vga_ce_sl),
-	.pxl2_cen (vga_ce_sl2),
-	.hsize    (hsize_emu_s),
-	.r_in     (vga_data_sl[23:16]),
-	.g_in     (vga_data_sl[15:8]),
-	.b_in     (vga_data_sl[7:0]),
-	.hs_in    (vga_hs_sl),
-	.vs_in    (vga_vs_sl),
-	.hb_in    (~vga_de_sl),
-	.vb_in    (~vga_de_sl),
-	.r_out    (vga_data_hs[23:16]),
-	.g_out    (vga_data_hs[15:8]),
-	.b_out    (vga_data_hs[7:0]),
-	.hs_out   (vga_hs_hs),
-	.vs_out   (vga_vs_hs),
-	.hb_out   (vga_hb_hs),
-	.vb_out   (vga_vb_hs)
-);
-assign vga_de_hs = ~vga_hb_hs & ~vga_vb_hs;
-
 wire [23:0] vga_data_osd;
 wire        vga_vs_osd, vga_hs_osd, vga_de_osd;
 osd vga_osd
@@ -1446,10 +1398,10 @@ osd vga_osd
 	.osd_status(osd_status),
 
 	.clk_video(clk_vid),
-	.din(vga_data_hs),
-	.hs_in(vga_hs_hs),
-	.vs_in(vga_vs_hs),
-	.de_in(vga_de_hs),
+	.din(vga_data_sl),
+	.hs_in(vga_hs_sl),
+	.vs_in(vga_vs_sl),
+	.de_in(vga_de_sl),
 
 	.dout(vga_data_osd),
 	.hs_out(vga_hs_osd),
@@ -1723,12 +1675,6 @@ wire        hvs_fix, hhs_fix, hde_emu;
 wire        clk_vid, ce_pix, clk_ihdmi, ce_hpix;
 wire        vga_force_scaler;
 
-wire  [2:0] hsize_emu;
-// hsize_emu (3 bit unsigned 0..7) -> hsize_emu_s = -hsize_emu (signed 4 bit).
-// 0=bypass, 1..7=allargamento progressivo (mappato a -1..-7 internamente
-// perche` analog_hsize allarga con scale negativo).
-wire signed [3:0] hsize_emu_s = -$signed({1'b0, hsize_emu});
-
 wire        ram_clk;
 wire [28:0] ram_address;
 wire [7:0]  ram_burstcount;
@@ -1813,7 +1759,6 @@ emu emu
 	.VGA_HS(hs_emu),
 	.VGA_VS(vs_emu),
 	.VGA_DE(de_emu),
-	.VGA_HSIZE(hsize_emu),
 	.VGA_F1(f1),
 	.VGA_SCALER(vga_force_scaler),
 

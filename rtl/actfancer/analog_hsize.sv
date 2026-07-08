@@ -17,10 +17,11 @@
 //  porches absorb the extra time), keeping the line within the tolerance of
 //  vintage 15 kHz CRT and PVM monitors.
 //
-//  The HDMI path is left COMPLETELY untouched: this module is inserted
-//  only on the analog VGA branch, after the core's video composition and
-//  before the analog DAC pins (typical insertion point in MiSTer is
-//  inside sys_top.v, before the OSD overlay).
+//  In this core the module is inserted EMU-SIDE: instantiated inside the
+//  core's emu wrapper (ActFancer.sv) at the video-output boundary, with
+//  zero sys_top.v changes. On this path the stretch reaches the analog DAC
+//  and (unlike the sys-side variant) HDMI follows the stretch too. See the
+//  MiSTer-AnalogHSize repo (docs/emu-side-integration.md) for the rationale.
 //
 //  ─── Resource cost ─────────────────────────────────────────────────────────
 //  ~1 M10K (24-bit linebuffer with ping-pong banks), ~50 ALM, 0 DSP.
@@ -30,7 +31,7 @@
 //              on a 96 MHz clk).
 //  pxl2_cen  : the DAC read clock enable, SLOWER than pxl_cen by an integer
 //              divisor (16+hsize) of clk, generated externally for phase
-//              alignment with HSync (see examples/sys_top_snippet.v).
+//              alignment with HSync (see examples/emu_side_snippet.v).
 //  hsize     : signed 4-bit, OSD-controlled stretch factor.
 //              hsize = 0 → bypass (passthrough at pxl_cen rate)
 //              hsize < 0 → progressively wider pixels (the typical use case;
@@ -178,9 +179,16 @@ module analog_hsize
         pass_q = 0;
     end
 
+    // vb_active: VBlank verticale vero, latchato per linea (a pxl_cen dal core).
+    // Serve a spegnere pass_q durante le righe di VBlank -> VGA_DE torna basso
+    // nel VBlank -> l'OSD trova il confine verticale del frame e resta visibile.
+    // NON tocca hb0/hb1 (bordi orizzontali) -> nessun re-clamp del "gotcha".
+    reg vb_active;
+    always @(posedge clk) if (pxl_cen) vb_active <= vb_in;
+
     always @(posedge clk) if (pxl2_cen) begin
         rd_data <= mem[{~bank, rdcnt[AW-2:0]}];
-        pass_q  <= (rdcnt >= hb1) && (rdcnt < hb0);
+        pass_q  <= (rdcnt >= hb1) && (rdcnt < hb0) && ~vb_active;
     end
 
     // ------------------------------------------------------------------
