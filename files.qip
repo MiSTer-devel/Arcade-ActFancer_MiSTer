@@ -21,6 +21,13 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_bac06_wra
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_obj_wrap.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_rom_bram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_sdram_bridge.sv
+## Removed 2026-05-19: actfancer_chars.sv + actfancer_tiles.sv obsoleti.
+## Path video usa actfancer_bac06_wrap (jtcop_bac06) per PF0 + PF1, vedi actfancer_video.sv.
+# set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_chars.sv
+# set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_tiles.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_sprites.sv
+# H-Size analogico EMU-SIDE (zero sys_top, modello asturur emu-side-integration)
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/analog_hsize.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/common/gfx_decode_debug.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/common/rom_cache_2way.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/common/actfancer_ddram.sv
@@ -30,6 +37,7 @@ set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_bac06.v
 set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj.v
 set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj_buffer.v
 set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj_draw.v
+set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_ongen.v
 set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_colmix.v
 
 # === HUC6280 (VHDL, main CPU - from BoogieWings/TG16) ===

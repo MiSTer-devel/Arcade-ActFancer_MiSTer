@@ -280,7 +280,6 @@ set_global_assignment -name DEVICE 5CSEBA6U23I7
 set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name CDF_FILE jtag.cdf
 set_global_assignment -name QIP_FILE sys/sys.qip
-set_global_assignment -name SYSTEMVERILOG_FILE sys/analog_hsize.sv
 set_global_assignment -name QIP_FILE rtl/pll.qip
 set_global_assignment -name SYSTEMVERILOG_FILE ActFancer.sv
 set_global_assignment -name VERILOG_FILE rtl/pll.v
@@ -296,6 +295,7 @@ set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_bac06.v
 set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj.v
 set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj_buffer.v
 set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_obj_draw.v
+set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_ongen.v
 set_global_assignment -name VERILOG_FILE rtl/actfancer/jtcop_colmix.v
 set_global_assignment -name VHDL_FILE rtl/HUC6280/HUC6280_PKG.vhd
 set_global_assignment -name VHDL_FILE rtl/HUC6280/AddSubBCD.vhd
@@ -327,6 +327,10 @@ set_hps_location_assignment HPSINTERFACEPERIPHERALUART_X52_Y67_N111 -to uart
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_rom_bram.sv
 set_global_assignment -name VERILOG_FILE jtframe/hdl/clocking/jtframe_frac_cen.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_sdram_bridge.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_rom_bram32.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_chars.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_tiles.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_sprites.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/actfancer/actfancer_obj_wrap.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/common/gfx_decode_debug.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/common/rom_cache_2way.sv

@@ -4,9 +4,10 @@
 //
 // Routes MiSTer HPS_BUS / SDRAM / DDRAM / video / audio to actfancer_top.
 // CONF_STR exposes aspect ratio, scale, audio mixer (per-chip volume), analog
-// VGA H-Shift / V-Shift / H-Size, Clean Pause overlay, DIP switches, joystick
-// mapping. ROM streaming via ioctl_download is wired to BRAM (CPU ROMs +
-// OKI ADPCM) and to the SDRAM bridge / DDRAM bridge for gfx ROMs.
+// VGA H-Shift / V-Shift, CRT Stretch (core-side analog H-Size), Clean Pause
+// overlay, DIP switches, joystick mapping. ROM streaming via ioctl_download is
+// wired to BRAM (CPU ROMs + OKI ADPCM) and to the SDRAM bridge / DDRAM bridge
+// for gfx ROMs.
 //
 // Author: Umberto Parisi (rmonic79), 2026.
 
@@ -25,7 +26,6 @@ module emu
     output        VGA_HS,
     output        VGA_VS,
     output        VGA_DE,
-    output  [2:0] VGA_HSIZE,
     output        VGA_F1,
     output [1:0]  VGA_SL,
     output        VGA_SCALER,
@@ -154,9 +154,10 @@ localparam CONF_STR = {
     "P1,Video;",
     "P1O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
     "P1O[7:5],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer,HV-Integer;",
-    "P1O[97:92],Analog VGA H-Shift,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,+16,+17,+18,+19,+20,+21,+22,+23,+24,+25,+26,+27,+28,+29,+30,+31,-32,-31,-30,-29,-28,-27,-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
+    "P1O[97:92],Analog VGA H-Shift,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,+16,+17,+18,+19,+20,+21,+22,+23,+24,+25,+26,+27,+28,+29,+30,+31,+32,+33,+34,+35,+36,+37,+38,+39,+40,+41,+42,+43,+44,+45,+46,+47,+48,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
     "P1O[28:23],Analog VGA V-Shift,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,+16,+17,+18,+19,+20,+21,+22,+23,+24,+25,+26,+27,+28,+29,+30,+31,-32,-31,-30,-29,-28,-27,-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
-    "P1O[100:98],Analog VGA H-Size,0,+1,+2,+3,+4,+5,+6,+7;",
+    "P1O[101],CRT Stretch,Off,On;",
+    "H1P1O[100:98],CRT Stretch Amount,0,1,2,3,4,5;",
     "P1O[18],Clean Pause,Off,On;",
     "-;",
     "P2,Audio Mixer;",
@@ -211,7 +212,9 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io_i (
 
     .buttons        (),
     .status         (status),
-    .status_menumask(16'd0),
+    // bit 1: H1 nasconde "CRT Stretch Amount" quando bit=1. Voglio nasconderlo
+    // quando CRT Stretch = Off -> menumask[1] = ~status[101].
+    .status_menumask({14'd0, ~status[101], 1'b0}),
 
     .ioctl_download (ioctl_download),
     .ioctl_wr       (ioctl_wr),
@@ -410,6 +413,7 @@ end
 
 // Pause overlay: dim video + logo + SUPPORTERS + patron scroll.
 // Modulo standalone 8-bit RGB. OSD "Clean Pause" (status[18]): ON=raw, OFF=overlay.
+wire [7:0] av_r, av_g, av_b;
 pause_overlay u_pause_ovl (
     .clk       (clk_sys),
     .pause     (pause),
@@ -420,44 +424,58 @@ pause_overlay u_pause_ovl (
     .rgb_r_in  (r8),
     .rgb_g_in  (g8),
     .rgb_b_in  (b8),
-    .rgb_r_out (VGA_R),
-    .rgb_g_out (VGA_G),
-    .rgb_b_out (VGA_B)
+    .rgb_r_out (av_r),
+    .rgb_g_out (av_g),
+    .rgb_b_out (av_b)
 );
 
-// VGA_HSIZE forwarded to sys_top analog_hsize module (analog branch only).
-// Modulo standalone in sys/analog_hsize.sv.
-assign VGA_HSIZE = status[100:98];
-
-// ── Analog VGA H-Shift / V-Shift (bidirezionali) ─────────────────────────────
-// Shift register su HSync/VSync verso il SOLO pin analogico VGA.
-// HDMI scaler usa sync propri, core timing invariato.
+// ── Analog VGA H-Size EMU-SIDE (zero sys_top, modello asturur) ───────────────
+// docs/emu-side-integration.md di asturur/MiSTer-AnalogHSize, validato su
+// Deco16/CRT. Modulo analog_hsize (linebuffer) dentro il core:
+//   - CLK_VIDEO = clk_sys = 96 MHz = 16x ce_pix (6 MHz) -> base 16, step 6.25%.
+//   - av_wr  = ce_pix (write rate)
+//   - rd_ce  = divisore lento (16+hsize) -> read piu` lento = stretch
+//   - hb_in = ~av_de = (hb|vb);  vb_in = 1'b0  <-- IL FIX (vedi doc "gotcha")
+//   - CE_PIXEL = rd_ce; VGA_DE = ~str_hb & ~str_vb (finestra allargata)
+// HDMI: scaler normalizza la durata (conta N pixel su CE_PIXEL) -> invariato.
+// Analog: DAC tiene la durata reale -> stretch. sys_top INTATTO.
 //
-// H-Shift: OSD signed -32..+31 ce_pix (6 bit two's complement).
-//   +N = ritarda HSync di N ce_pix  -> immagine spostata a SINISTRA.
-//   -N = anticipa HSync di N ce_pix -> immagine spostata a DESTRA.
-//   Anticipo implementato come ritardo equivalente (HTotal - |N|).
-//   HTotal AF = 384 ce_pix (jtcop_bac06 VCNT_END/HB_END timing).
-// V-Shift: OSD signed -32..+31 linee, stessa convenzione.
-//   VTotal AF = 272 linee (jtcop_bac06 VCNT_END=271).
+// OSD: "CRT Stretch" On/Off (status[101]) + "CRT Stretch Amount" 0..5
+// (status[100:98]). Amount visibile solo quando CRT Stretch = On (menumask D1).
+// hsize = Amount se Stretch On, altrimenti 0 (bypass). Off = default.
+reg [2:0] osd_amount_d;
+reg       crt_stretch_d;
+always @(posedge clk_sys) if (ce_pix) begin
+    osd_amount_d  <= status[100:98];
+    crt_stretch_d <= status[101];
+end
+
+wire [2:0] hsize = crt_stretch_d ? osd_amount_d : 3'd0;  // 0=bypass, 1..5 stretch
+
+// ── Analog VGA H-Shift / V-Shift (bidirezionali) — UPSTREAM del modulo ───────
+// Come da doc asturur emu-side: l'H-Pos va PRIMA del modulo H-Size, cosi` lo
+// shift dell'HS/VS entra nel modulo e si compone con lo stretch (recentering).
+// H-Shift: OSD signed -32..+31 ce_pix. V-Shift: OSD signed -32..+31 linee.
 localparam int H_TOTAL_AF = 384;
 localparam int V_TOTAL_AF = 272;
 
 // H-Shift -----------------------------------------------------------------
-reg signed [5:0] osd_vga_hshift_d;
-always @(posedge clk_sys) if (ce_pix) osd_vga_hshift_d <= $signed(status[97:92]);
+// Range sbilanciato verso sinistra (lo stretch spinge a destra): bitfield
+// 0..48 = ritardo +0..+48 (sinistra), 49..63 = -15..-1 (destra).
+reg [5:0] osd_vga_hshift_d;
+always @(posedge clk_sys) if (ce_pix) osd_vga_hshift_d <= status[97:92];
 
-// indice tap: positivo -> ritardo = N; negativo -> ritardo = HTotal + N (= HTotal - |N|).
-wire [8:0] hshift_tap = osd_vga_hshift_d[5]
-    ? (9'(H_TOTAL_AF) + {{3{osd_vga_hshift_d[5]}}, osd_vga_hshift_d})
-    : {3'd0, osd_vga_hshift_d};
+// tap positivo (0..48) -> ritardo diretto. Negativo (49..63 = -15..-1) ->
+// ritardo equivalente HTotal - |N| (dove |N| = 64 - bitfield).
+wire [8:0] hshift_tap = (osd_vga_hshift_d <= 6'd48)
+    ? {3'd0, osd_vga_hshift_d}
+    : (9'(H_TOTAL_AF) - (9'd64 - {3'd0, osd_vga_hshift_d}));
 
 reg [H_TOTAL_AF-1:0] hsync_shreg;
 always @(posedge clk_sys) if (ce_pix) hsync_shreg <= {hsync_shreg[H_TOTAL_AF-2:0], hs};
 reg vga_hs_reg;
 always @(posedge clk_sys) if (ce_pix)
     vga_hs_reg <= (hshift_tap == 9'd0) ? hs : hsync_shreg[hshift_tap - 9'd1];
-assign VGA_HS = vga_hs_reg;
 
 // V-Shift -----------------------------------------------------------------
 reg hs_d;
@@ -476,10 +494,89 @@ always @(posedge clk_sys) if (line_tick) vsync_line_shreg <= {vsync_line_shreg[V
 reg vga_vs_reg;
 always @(posedge clk_sys) if (line_tick)
     vga_vs_reg <= (vshift_tap == 9'd0) ? vs : vsync_line_shreg[vshift_tap - 9'd1];
-assign VGA_VS = vga_vs_reg;
-// VGA_DE pilotato da video_freak (vedi fondo)
+
+// ── H-Size EMU-SIDE: divisore read + modulo, alimentato dagli HS/VS shiftati ─
+wire hsize_active = (hsize != 3'd0);
+
+// Divisore read: 1 pixel ogni (16 + hsize) cicli clk_sys. Reset sull'HS
+// GIA` SHIFTATO (vga_hs_reg) per comporre H-Shift + stretch.
+reg  vga_hs_reg_d;
+always @(posedge clk_sys) vga_hs_reg_d <= vga_hs_reg;
+wire shifted_hs_rise = vga_hs_reg & ~vga_hs_reg_d;
+
+reg  [4:0] rd_div;
+wire [4:0] rd_max = 5'd15 + {2'd0, hsize};
+always @(posedge clk_sys)
+    if (shifted_hs_rise || rd_div == rd_max) rd_div <= 5'd0;
+    else                                     rd_div <= rd_div + 5'd1;
+
+wire              rd_ce   = (hsize == 3'd0) ? ce_pix : (rd_div == 5'd0); // 0=bypass
+wire signed [3:0] hsize_s = -$signed({1'b0, hsize});   // modulo: <0 = piu` largo
+
+wire [7:0] str_r, str_g, str_b;
+wire       str_hs, str_vs, str_hb, str_vb;
+
+analog_hsize u_analog_hsize (
+    .clk      (clk_sys),
+    .pxl_cen  (ce_pix),          // write rate (native pixel)
+    .pxl2_cen (rd_ce),           // read rate (slower = stretch)
+    .hsize    (hsize_s),
+    .r_in     (av_r),
+    .g_in     (av_g),
+    .b_in     (av_b),
+    .hs_in    (vga_hs_reg),      // HS gia` shiftato (H-Shift upstream)
+    .vs_in    (vga_vs_reg),      // VS gia` shiftato (V-Shift upstream)
+    .hb_in    (hb | vb),         // = ~av_de = blanking combinato (per bordi H)
+    .vb_in    (vb),              // VBlank VERTICALE vero: spegne pass_q nel VBlank
+                                 // (OSD trova il confine verticale). NON re-clampa
+                                 // la finestra H perche` agisce solo su pass_q.
+    .r_out    (str_r),
+    .g_out    (str_g),
+    .b_out    (str_b),
+    .hs_out   (str_hs),
+    .vs_out   (str_vs),
+    .hb_out   (str_hb),
+    .vb_out   (str_vb)
+);
+
+// Output sync: H-Size attivo -> dal modulo (incorpora shift). Bypass -> shiftato.
+assign VGA_HS = hsize_active ? str_hs : vga_hs_reg;
+assign VGA_VS = hsize_active ? str_vs : vga_vs_reg;
+
+// ── Finestra DE per l'OSD ancorata al riferimento NATIVO ────────────────────
+// L'OSD (sys_top) si centra sul rising di VGA_DE. Se usasse str_hb (shiftato
+// dall'H-Shift), l'OSD seguirebbe l'immagine. Per tenerlo FERMO: genero una
+// finestra DE con la stessa LARGHEZZA stretchata (durata di str_hb) ma con il
+// RISING ancorato all'attivo NATIVO. L'immagine analogica si sposta comunque
+// (via VGA_HS=str_hs), ma l'OSD digitale resta centrato sullo schermo fisico.
+// str_active = ~str_hb (finestra attiva stretchata del modulo).
+wire str_active = ~str_hb;
+reg  str_active_d;
+always @(posedge clk_sys) if (rd_ce) str_active_d <= str_active;
+wire str_fall = str_active_d & ~str_active;   // fine attivo stretchato
+
+// Rising nativo: fine del blanking del core (hb) al riferimento non shiftato.
+wire native_active = ~(hb | vb);
+reg  native_active_d;
+always @(posedge clk_sys) if (ce_pix) native_active_d <= native_active;
+wire native_rise = native_active & ~native_active_d;  // inizio attivo nativo
+
+// DE_osd: alto dal rising nativo, resta alto finche` non passa la durata
+// dell'attivo stretchato (str_fall). Rising fisso (nativo), larghezza stretch.
+reg de_osd;
+always @(posedge clk_sys) begin
+    if      (native_rise) de_osd <= 1'b1;
+    else if (str_fall)    de_osd <= 1'b0;
+    if (vb)               de_osd <= 1'b0;   // spento in VBlank verticale
+end
+// H-Size attivo: RGB dal modulo (stretchati). Altrimenti pause_overlay diretto.
+assign VGA_R = hsize_active ? str_r : av_r;
+assign VGA_G = hsize_active ? str_g : av_g;
+assign VGA_B = hsize_active ? str_b : av_b;
+// VGA_DE: H-Size attivo -> ~str_hb & ~str_vb (finestra allargata). Altrimenti video_freak.
 assign CLK_VIDEO = clk_sys;
-assign CE_PIXEL  = ce_pix;
+// H-Size attivo: CE_PIXEL = rd_ce (read rate). Altrimenti ce_pix.
+assign CE_PIXEL  = hsize_active ? rd_ce : ce_pix;
 
 assign AUDIO_L = aud_l;
 assign AUDIO_R = aud_r;
@@ -743,14 +840,15 @@ wire [11:0] ary = (!ar) ? 12'd3 : 12'd0;
 
 video_freak video_freak (
     .CLK_VIDEO  (clk_sys),
-    .CE_PIXEL   (ce_pix),
+    .CE_PIXEL   (hsize_active ? rd_ce : ce_pix),
     .VGA_VS     (VGA_VS),
     .HDMI_WIDTH (HDMI_WIDTH),
     .HDMI_HEIGHT(HDMI_HEIGHT),
     .VGA_DE     (VGA_DE),
     .VIDEO_ARX  (VIDEO_ARX),
     .VIDEO_ARY  (VIDEO_ARY),
-    .VGA_DE_IN  (~(hb | vb)),
+    // H-Size attivo: finestra DE ancorata al NATIVO (de_osd) -> OSD fermo.
+    .VGA_DE_IN  (hsize_active ? de_osd : ~(hb | vb)),
     .ARX        (arx),
     .ARY        (ary),
     .CROP_SIZE  (12'd0),
